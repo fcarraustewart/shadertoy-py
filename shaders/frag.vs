@@ -2,128 +2,197 @@
 in vec2 uv;
 uniform float iTime;
 uniform vec2 iResolution;
-uniform vec2 iMouse;
+uniform vec3 iMouse;
 out vec4 frag_color;
+float neLength(vec2 p, float l) {
+    return pow(
+        pow(abs(p.x), l) + pow(abs(p.y), l)
+    	, 1.0/l);
+}
 
-mat2 rot(in float a){float c = cos(a), s = sin(a);return mat2(c,s,-s,c);}
-const mat3 m3 = mat3(0.33338, 0.56034, -0.71817, -0.87887, 0.32651, -0.15323, 0.15162, 0.69596, 0.61339)*1.93;
-float mag2(vec2 p){return dot(p,p);}
-float linstep(in float mn, in float mx, in float x){ return clamp((x - mn)/(mx - mn), 0., 1.); }
-float prm1 = 0.;
-vec2 bsMo = vec2(0);
+float dSphere(vec3 p, float r) {
+    return length(p) - r;
+}
 
-vec2 disp(float t){ return vec2(sin(t*0.22)*1., cos(t*0.175)*1.)*2.; }
+float dTorus(vec3 p, vec2 t) {
+    vec2 d = vec2(length(p.xz) - t.x, p.y);
+    return length(d) - t.y;
+}
 
-vec2 map(vec3 p)
-{
-    vec3 p2 = p;
-    p2.xy -= disp(p.z).xy;
-    p.xy *= rot(sin(p.z+iTime)*(0.1 + prm1*0.05) + iTime*0.09);
-    float cl = mag2(p2.xy);
-    float d = 0.;
-    p *= .61;
-    float z = 1.;
-    float trk = 1.;
-    float dspAmp = 0.1 + prm1*0.2;
-    for(int i = 0; i < 5; i++)
-    {
-		p += sin(p.zxy*0.75*trk + iTime*trk*.8)*dspAmp;
-        d -= abs(dot(cos(p), sin(p.yzx))*z);
-        z *= 0.57;
-        trk *= 1.4;
-        p = p*m3;
+float dCircleTorus(vec3 p, vec2 t) {
+    vec2 d = vec2(length(p.xz) - t.x, p.y);
+    return neLength(d, 8.) - t.y;
+}
+
+float dBoxTorus(vec3 p, vec2 t) {
+    vec2 d = vec2(neLength(p.xz, 8.) - t.x, p.y);
+    return neLength(d, 8.) - t.y;
+}
+
+float dSegment(vec3 p, vec3 a, vec3 b, float r) {
+    vec3 pa = p - a;
+    vec3 ba = b - a;
+    float h = clamp(dot(pa, ba)/dot(ba, ba), 0.0, 1.0);
+    return length(pa - ba*h) - r;
+}
+
+
+vec2 opU(vec2 a, vec2 b) {
+    return a.x < b.x ? a : b;
+}
+
+void rotate(inout vec2 p, float a) {
+    float s = sin(a);
+    float c = cos(a);
+
+    p = mat2(c, s, -s, c)*p;
+}
+
+vec2 map(vec3 p) {
+	vec2 p1 = vec2(p.y + 2.4, 0.0);
+    p.y -= .6;
+	rotate(p.xz, iTime);
+    p.x -= 2.5;
+    rotate(p.xy, 0.3*cos(2.0*iTime));
+
+    vec2 w = vec2(dSphere(p, .70 - 0.1*sin(10.0*p.x + 5.0*iTime)*sin(10.0*p.y)*sin(10.0*p.z + 5.0*iTime)), 1.0);
+    float radius = .15 - 0.1*smoothstep(2.3, 2.4, p.y > 0. ? p.y : abs(p.y + .4));
+    vec2 sp = vec2(dSegment(p, vec3(0, 2.4, 0), vec3(0, -3.0, 0), radius), 7.0);
+    rotate(p.zy, 3.14/2.0);
+    vec2 bt = vec2(dCircleTorus(p, vec2(1, .08)), 2.0);
+    for(int i = 0; i < 4; i++) {
+        rotate(p.xy, iTime + float(i));
+        p = p/1.2;
+        vec2 bts = vec2(dCircleTorus(p, vec2(1, 0.08))*1.2, 3.0 + float(i));
+        bt = opU(bt, bts);
     }
-    d = abs(d + prm1*3.)+ prm1*.3 - 2.5 + bsMo.y;
-    return vec2(d + cl*.2 + 0.25, cl);
+
+    return opU(p1, opU(opU(w, sp), bt));
 }
 
-vec4 render( in vec3 ro, in vec3 rd, float time )
-{
-	vec4 rez = vec4(0);
-    const float ldst = 8.;
-	vec3 lpos = vec3(disp(time + ldst)*0.5, time + ldst);
-	float t = 1.5;
-	float fogT = 0.;
-	for(int i=0; i<130; i++)
-	{
-		if(rez.a > 0.99)break;
+vec2 spheretrace(vec3 ro, vec3 rd, float tmin, float tmax) {
+    float td = tmin;
+    float mid = -1.0;
 
-		vec3 pos = ro + t*rd;
-        vec2 mpv = map(pos);
-		float den = clamp(mpv.x-0.3,0.,1.)*1.12;
-		float dn = clamp((mpv.x + 2.),0.,3.);
+    for(int i = 0; i < 256; i++) {
+        vec2 s = map(ro + rd*td);
 
-		vec4 col = vec4(0);
-        if (mpv.x > 0.6)
-        {
+        if(abs(s.x) < 0.001 || td > tmax) break;
 
-            col = vec4(sin(vec3(5.,0.4,0.2) + mpv.y*0.1 +sin(pos.z*0.4)*0.5 + 1.8)*0.5 + 0.5,0.08);
-            col *= den*den*den;
-			col.rgb *= linstep(4.,-2.5, mpv.x)*2.3;
-            float dif =  clamp((den - map(pos+.8).x)/9., 0.001, 1. );
-            dif += clamp((den - map(pos+.35).x)/2.5, 0.001, 1. );
-            col.xyz *= den*(vec3(0.005,.045,.075) + 1.5*vec3(0.033,0.07,0.03)*dif);
-        }
+        td += s.x*0.5;
+        mid = s.y;
+    }
 
-		float fogC = exp(t*0.2 - 2.2);
-		col.rgba += vec4(0.06,0.11,0.11, 0.1)*clamp(fogC-fogT, 0., 1.);
-		fogT = fogC;
-		rez = rez + col*(1. - rez.a);
-		t += clamp(0.5 - dn*dn*.05, 0.09, 0.3);
-	}
-	return clamp(rez, 0.0, 1.0);
+    if(td > tmax) mid = -1.0;
+    return vec2(td, mid);
 }
 
-float getsat(vec3 c)
-{
-    float mi = min(min(c.x, c.y), c.z);
-    float ma = max(max(c.x, c.y), c.z);
-    return (ma - mi)/(ma+ 1e-7);
+vec3 normal(vec3 p) {
+    vec2 h = vec2(0.01, 0.0);
+    vec3 n = vec3(
+        map(p + h.xyy).x - map(p - h.xyy).x,
+        map(p + h.yxy).x - map(p - h.yxy).x,
+        map(p + h.yyx).x - map(p - h.yyx).x
+    );
+
+    return normalize(n);
 }
 
-//from my "Will it blend" shader (https://www.shadertoy.com/view/lsdGzN)
-vec3 iLerp(in vec3 a, in vec3 b, in float x)
-{
-    vec3 ic = mix(a, b, x) + vec3(1e-6,0.,0.);
-    float sd = abs(getsat(ic) - mix(getsat(a), getsat(b), x));
-    vec3 dir = normalize(vec3(2.*ic.x - ic.y - ic.z, 2.*ic.y - ic.x - ic.z, 2.*ic.z - ic.y - ic.x));
-    float lgt = dot(vec3(1.0), ic);
-    float ff = dot(dir, normalize(ic));
-    ic += 1.5*dir*sd*ff*lgt;
-    return clamp(ic,0.,1.);
+float shadow(vec3 p, vec3 l) {
+    float res = 1.0;
+    float td = 0.02;
+
+    for(int i = 0; i < 256; i++) {
+        float h = map(p + l*td).x;
+        td += h*0.5;
+        res = min(res, 32.0*h/td);
+        if(abs(h) < 0.001 || td > 25.0) break;
+    }
+
+    return clamp(res, 0.0, 1.0);
 }
 
-void main()
+vec3 lighting(vec3 p, vec3 lp, vec3 rd) {
+    vec3 lig = normalize(lp);
+    vec3 n = normal(p);
+    vec3 ref = reflect(lig, n);
+
+    float amb = clamp(0.7 + 0.3*abs(n.y), 0.0, 1.0);
+    float dif = clamp(dot(n, lig), 0.0, 1.0);
+    float spe = pow(clamp(dot(rd, ref), 0.0, 1.0), 52.0);
+
+    dif *= shadow(p, lig);
+
+    vec3 lin = vec3(0);
+
+    lin += 0.4*amb*vec3(1);
+    lin += dif*vec3(1, .97, .85);
+    lin += spe*vec3(1, .97, .54);
+
+    return lin;
+}
+
+vec3 material(float mid, vec3 p) {
+    vec3 col = vec3(1.);
+
+    if(mid == 0.0) {
+        vec2 a = vec2(1)*smoothstep(-0.15, 0.15, mod(p.x, 2.))*smoothstep(-0.15, 0.15, mod(p.z, 2.));
+        col = vec3(a, 1);
+    }
+
+    if(mid == 1.0) {
+        col = vec3(.2, .8, .001);
+    }
+
+    if(mid >= 2.0 && mid < 7.0) {
+        col = mix(
+            vec3(1, .1, .1),
+            vec3(.1, .1, 1),
+            cos(mid + iTime));
+    }
+
+    if(mid == 7.0) col = vec3(.65);
+
+    return col;
+}
+
+vec3 render(vec3 ro, vec3 rd, vec3 lp) {
+    vec2 i = spheretrace(ro, rd, 0.0, 25.0);
+    vec3 p = ro + rd*i.x;
+    vec3 m = material(i.y, p);
+    if(i.y == -1.0) return m;
+
+    m *= lighting(p, lp, rd);
+
+    return m;
+}
+
+mat3 camera(vec3 e, vec3 l) {
+    vec3 rl = vec3(0, 1, 0);
+    vec3 f = normalize(l - e);
+    vec3 r = normalize(cross(rl, f));
+    vec3 u = normalize(cross(f, r));
+
+    return mat3(r, u, f);
+}
+
+void main(  )
 {
-	vec2 q = uv.xy/iResolution.xy;
-    vec2 p = (gl_FragCoord.xy - 0.5*iResolution.xy)/iResolution.y;
-    bsMo = (iMouse.xy - 0.5*iResolution.xy)/iResolution.y;
+    uv.x *= iResolution.x/iResolution.y;
 
-    float time = iTime*3.;
-    vec3 ro = vec3(0,0,time);
+    float s = 0.;
+    if(iMouse.z > 0.) {
+        s = 0.01*iMouse.x;
+    } else {
+        s = 3.1;
+    }
 
-    ro += vec3(sin(iTime)*0.5,sin(iTime*1.)*0.,0);
+    vec3 ro = 5.0*vec3(cos(s), 0.8, -sin(s));
+    vec3 rd = camera(ro, vec3(0))*normalize(vec3(uv, 2.0));
 
-    float dspAmp = .85;
-    ro.xy += disp(ro.z)*dspAmp;
-    float tgtDst = 3.5;
+    vec3 lp = vec3(.75, .75, 0);
 
-    vec3 target = normalize(ro - vec3(disp(time + tgtDst)*dspAmp, time + tgtDst));
-    ro.x -= bsMo.x*2.;
-    vec3 rightdir = normalize(cross(target, vec3(0,1,0)));
-    vec3 updir = normalize(cross(rightdir, target));
-    rightdir = normalize(cross(updir, target));
-	vec3 rd=normalize((p.x*rightdir + p.y*updir)*1. - target);
-    rd.xy *= rot(-disp(time + 3.5).x*0.2 + bsMo.x);
-    prm1 = smoothstep(-0.4, 0.4,sin(iTime*0.3));
-	vec4 scn = render(ro, rd, time);
-
-    vec3 col = scn.rgb;
-    col = iLerp(col.bgr, col.rgb, clamp(1.-prm1,0.05,1.));
-
-    col = pow(col, vec3(.55,0.65,0.6))*vec3(1.,.97,.9);
-
-    col *= pow( 16.0*q.x*q.y*(1.0-q.x)*(1.0-q.y), 0.12)*0.7+0.3; //Vign
-
-	frag_color = vec4( col, 1.0 );
+    vec3 rend = render(ro, rd, lp);
+    rend = pow(rend, vec3(.4545));
+    frag_color = vec4(rend, 1.0);
 }
