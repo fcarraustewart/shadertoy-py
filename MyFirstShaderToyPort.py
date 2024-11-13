@@ -4,7 +4,7 @@ from glapp.Mesh import *
 
 class MyFirstShaderToyPort(PyOGLApp):
     def __init__(self):
-        super().__init__(850,100,1000,1000)
+        super().__init__(850,100,1024,768)
         self.screen_plane = None
 
     def initialise(self):
