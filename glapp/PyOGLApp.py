@@ -27,7 +27,7 @@ class PyOGLApp():
                     done = True
             self.display()
             pygame.display.flip()
-            self.clock.tick(240)
+            self.clock.tick(60)
         pygame.quit()
 
 

@@ -178,6 +178,7 @@ mat3 camera(vec3 e, vec3 l) {
 
 void main(  )
 {
+    vec2 uv = -1.0+2.0*(uv.xy * 2000.0/iResolution.xy);
     uv.x *= iResolution.x/iResolution.y;
 
     float s = 0.;

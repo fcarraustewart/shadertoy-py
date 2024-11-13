@@ -43,9 +43,9 @@ class Mesh:
         # Update timer and mouse
         '''
         timer_id = glGetUniformLocation(self.program_id, "iTime")
-        glUniform1f(timer_id, pygame.time.get_ticks()*0.01)
+        glUniform1f(timer_id, pygame.time.get_ticks()*0.001)
         mouse_id = glGetUniformLocation(self.program_id, "iMouse")
-        glUniform2f(mouse_id, pygame.mouse.get_pos()[0], pygame.mouse.get_pos()[1]) #2d vec2 of floats
+        glUniform3f(mouse_id, pygame.mouse.get_pos()[0], pygame.mouse.get_pos()[1], 1) #2d vec2 of floats
 
         # drawing
         glBindVertexArray(self.vao_ref)
