@@ -5,14 +5,14 @@ from OpenGL.GL import *
 class Mesh:
     def __init__(self, program_id):
         self.vertices = [
-            [-1, -1, 0],
-            [-1, 1, 0],
-            [1, -1, 0],
-            [1, -1, 0],
-            [-1, 1, 0],
-            [1, 1, 0],
+            [-1/2, -1/2, 500],
+            [-1/2, 1/2, 500],
+            [1/2, -1/2, 500],
+            [1/2, -1/2, 500],
+            [-1/2, 1/2, 500],
+            [1/2, 1/2, 500],
         ]
-        self.vertex_uvs = [ [0,0],[0,1],[1,0],[1,0],[0,1],[1,1] ]
+        self.vertex_uvs = [ [-1/2,-1/2],[-1/2,1/2],[1/2,-1/2],[1/2,-1/2],[-1/2,1/2],[1/2,1/2] ]
         self.program_id = program_id
 
         self.vao_ref = glGenVertexArrays(1)
