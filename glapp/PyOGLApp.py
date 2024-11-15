@@ -1,6 +1,8 @@
 import pygame
 from pygame.locals import *
 import os
+import time
+import zmq
 
 class PyOGLApp():
     def __init__(self, screen_posX, screen_posY, screen_width, screen_height):
@@ -20,13 +22,28 @@ class PyOGLApp():
 
     def mainloop(self):
         done = False
+        context = zmq.Context()
+        socket = context.socket(zmq.REP)
+        socket.bind("tcp://*:5555")
         self.initialise()
+
         while not done:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     done = True
+            #  Wait for next request from client
+            try:
+                # check for a message, this will not block
+                message = socket.recv(flags=zmq.NOBLOCK)
+                # a message has been received
+                print("Message received:", message)
+            except zmq.Again as e:
+                pass
+
             self.display()
             pygame.display.flip()
+            #  Send reply back to client
+            #socket.send(b"World")
             self.clock.tick(60)
         pygame.quit()
 

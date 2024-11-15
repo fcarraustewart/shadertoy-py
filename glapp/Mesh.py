@@ -36,6 +36,8 @@ class Mesh:
         glEnableVertexAttribArray(uvs_id)
         glBindBuffer(GL_ARRAY_BUFFER, uvs_ref)
         glBufferData(GL_ARRAY_BUFFER, uvs_data.ravel(), GL_STATIC_DRAW)
+        self.roll = 0
+        self.pitch = 0
 
     def draw(self):
         '''
@@ -45,7 +47,11 @@ class Mesh:
         timer_id = glGetUniformLocation(self.program_id, "iTime")
         glUniform1f(timer_id, pygame.time.get_ticks()*0.001)
         mouse_id = glGetUniformLocation(self.program_id, "iMouse")
-        glUniform3f(mouse_id, pygame.mouse.get_pos()[0], pygame.mouse.get_pos()[1], 1) #2d vec2 of floats
+        self.roll = (self.roll+1) % 180
+        self.pitch = (self.pitch+1) % 180
+        #print(self.roll, self.pitch)
+        #print(pygame.mouse.get_pos()[0], pygame.mouse.get_pos()[1])
+        glUniform3f(mouse_id, pygame.mouse.get_pos()[0]+self.roll, pygame.mouse.get_pos()[1]+self.pitch, pygame.mouse.get_pos()[0]+self.roll) #2d vec2 of floats
 
         # drawing
         glBindVertexArray(self.vao_ref)

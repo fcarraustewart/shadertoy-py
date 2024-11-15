@@ -183,7 +183,7 @@ void main(  )
 
     float s = 0.;
     if(iMouse.z > 0.) {
-        s = 0.01*iMouse.x;
+        s = 0.1*iMouse.x;
     } else {
         s = 3.1;
     }
